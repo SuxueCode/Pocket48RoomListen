@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CSharpPlugins", "CSharpPlugins", "{0CB0267E-7447-497F-ABB7-DB45CF5A4EF4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teemo.CoolQ.Plugins", "src\Teemo.CoolQ.Plugins\Teemo.CoolQ.Plugins.csproj", "{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|Win32 = Debug|Win32
+		Release|Any CPU = Release|Any CPU
+		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113}.Release|Win32.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5D0BDC2D-DA77-4B06-A29C-2476C5BAA113} = {0CB0267E-7447-497F-ABB7-DB45CF5A4EF4}
+	EndGlobalSection
+EndGlobal
