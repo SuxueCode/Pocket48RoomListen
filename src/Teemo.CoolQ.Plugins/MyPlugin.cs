@@ -31,6 +31,11 @@ namespace Teemo.CoolQ.Plugins
         /// </summary>
         public override void Initialize()
         {
+            //listenConfig = new ListenConfig() { QQGroup = 498635931, KDRoomId = 5783223, IdolName = "张琼予", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
+            //listenConfig = new ListenConfig() { QQGroup = 439642185, KDRoomId = 5776973, IdolName = "杨媛媛", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
+            //listenConfig = new ListenConfig() { QQGroup = 219365999, KDRoomId = 5773746, IdolName = "徐晨辰", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
+            //listenConfig = new ListenConfig() { QQGroup = 550562023, KDRoomId = 5777241, IdolName = "陈楠茜", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
+            //listenConfig = new ListenConfig() { QQGroup = 596537568, KDRoomId = 5770640, IdolName = "龙亦瑞", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
             listenConfig = new ListenConfig() { QQGroup = 479995230, KDRoomId = 5774531, IdolName = "邹佳佳", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
 
             listenConfig.Version = new Version("1.0.0.9");
