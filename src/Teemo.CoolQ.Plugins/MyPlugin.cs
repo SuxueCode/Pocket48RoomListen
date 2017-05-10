@@ -7,23 +7,10 @@ using Newtonsoft.Json.Linq;
 using System.Net;
 using System.IO;
 using System.Drawing;
+using System.Collections;
 
 namespace Teemo.CoolQ.Plugins
 {
-
-    public class ListenConfig
-    {
-        public long QQGroup { get; set; }
-        public long KDRoomId { get; set; }
-        public string IdolName { get; set; }
-        public int GetRoomMsgDelay { get; set; }
-        public int GetWeiboDelay { get; set; }
-        public int GetLiveDelay { get; set; }
-        public string HitYouText { get; set; }
-        public Version Version { get; set; }
-        public int GetRoomMsgCount { get; set; }
-    }
-
     public class MyPlugin : CQAppAbstract
     {
         /// <summary>
@@ -31,56 +18,58 @@ namespace Teemo.CoolQ.Plugins
         /// </summary>
         public override void Initialize()
         {
-            //listenConfig = new ListenConfig() { QQGroup = 498635931, KDRoomId = 5783223, IdolName = "张琼予", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-            //listenConfig = new ListenConfig() { QQGroup = 439642185, KDRoomId = 5776973, IdolName = "杨媛媛", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-            //listenConfig = new ListenConfig() { QQGroup = 219365999, KDRoomId = 5773746, IdolName = "徐晨辰", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-            //listenConfig = new ListenConfig() { QQGroup = 550562023, KDRoomId = 5777241, IdolName = "陈楠茜", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-            //listenConfig = new ListenConfig() { QQGroup = 596537568, KDRoomId = 5770640, IdolName = "龙亦瑞", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-            listenConfig = new ListenConfig() { QQGroup = 479995230, KDRoomId = 5774531, IdolName = "邹佳佳", GetRoomMsgDelay = 2000, GetLiveDelay = 5000, GetWeiboDelay = 3000 };
-
-            listenConfig.Version = new Version("1.0.0.9");
-            listenConfig.HitYouText = "";
-
-            this.Name = "口袋房间监听(" + listenConfig.IdolName + ")";
-            this.Version = listenConfig.Version;
+            
+            MemberIdCache.Add("徐晨辰", 219365999);
+            MemberIdCache.Add("邹佳佳", 479995230);
+            MemberIdCache.Add("龙亦瑞", 596537568);
+            MemberIdCache.Add("陈楠茜", 550562023);
+            MemberIdCache.Add("杨媛媛", 439642185);
+            MemberIdCache.Add("张琼予", 498635931);
+            
+            this.Name = "口袋直播监听";
+            this.Version = new Version("1.0.0.1");
             this.Author = "Teemo Studio";
-            this.Description = "应援群：" + listenConfig.QQGroup + "\r\n口袋id：" + listenConfig.KDRoomId + "\r\n" + listenConfig.IdolName;
+            this.Description = "没啥好说的....跪求大佬捐助啊！";
         }
 
-        static ListenConfig listenConfig;
+        static Hashtable MemberIdCache = new Hashtable();
+        static Hashtable LiveMsgCache = new Hashtable();
+        static int RunCount;
 
-        static bool first = true;
-        static long lasttime = 0;
-
-        Thread tasks = null;
+        static Thread ListenTask = null;
 
         public override void Startup()
         {
-            tasks = new Thread(()=> {
+            ListenTask = new Thread(()=> {
                 while (true)
                 {
-                    GetRoomMsg();
-                    listenConfig.GetRoomMsgCount++;
-                    Thread.Sleep(listenConfig.GetRoomMsgDelay);
+                    GetLive();
+                    RunCount++;
+                    Thread.Sleep(5000);
                 }
             });
-            tasks.Start();
+            ListenTask.Start();
         }
 
-        public void GetRoomMsg()
+        public void GetLive()
         {
             try
             {
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(new Uri("https://pjuju.48.cn/imsystem/api/im/v1/member/room/message/chat"));
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(new Uri("https://plive.48.cn/livesystem/api/live/v1/memberLivePage"));
                 req.Method = "POST";
-                req.UserAgent = "okhttp/3.4.1";
+                req.UserAgent = "kd listen";
+                req.Headers.Add("token", "0");
 
                 JObject rss = new JObject(
-                    new JProperty("roomId", listenConfig.KDRoomId),
                     new JProperty("lastTime", 0),
-                    new JProperty("limit", 10)
+                    new JProperty("limit", 20),
+                    new JProperty("groupId", 0),
+                    new JProperty("memberId", 0),
+                    new JProperty("type", 1),
+                    new JProperty("giftUpdTime", 1490857731000)
                 );
 
+                #region 数据请求 返回strResult:string
                 string postJson = rss.ToString();
                 byte[] bytes = Encoding.UTF8.GetBytes(postJson);
 
@@ -99,62 +88,33 @@ namespace Teemo.CoolQ.Plugins
 
                 streamReceive.Dispose();
                 streamReader.Dispose();
-
+                #endregion
 
                 JObject json = JObject.Parse(strResult);
                 if ((int)json["status"] == 200)
                 {
-                    IEnumerable<JToken> datas = json.SelectTokens("$.content.data[*]");
-
-                    //记录本次最大时间戳
-                    long tmpTime = 0;
-                    
-                    foreach (JToken msgs in datas)
+                    IEnumerable<JToken> datas = json.SelectTokens("$.content.liveList[*]");
+                    foreach (JToken liveInfo in datas)
                     {
-                        //历史最后时间戳比对
-                        if ((long)msgs["msgTime"] > lasttime)
+                        if (LiveMsgCache.ContainsKey(liveInfo["liveId"]))
+                            return;
+                        //懒得想算法了，直接很粗暴的按的字分割了
+                        //title字段师xxx的直播间/电台，所以上面的idcache就直接看看有没有这个键，有的话直接推送了
+                        string[] name = liveInfo["title"].ToString().Split(new string[] { "的" }, StringSplitOptions.RemoveEmptyEntries);
+                        if (MemberIdCache.ContainsKey(name[0]))
                         {
-                            //本次消息时间
-                            if ((long)msgs["msgTime"] > tmpTime)
-                                tmpTime = (long)msgs["msgTime"];
-                            JObject msg = JObject.Parse(msgs["extInfo"].ToString());
-                            //首次运行，直接退出循环
-                            if (first)
-                                break;
-                            if ((long)msgs["msgTime"] < lasttime)
-                                break;
-                            switch (msg["messageObject"].ToString())
-                            {
-                                case "deleteMessage":
-                                    //CQ.SendGroupMessage(qqGroup,"你的小偶像删除了一条口袋房间的消息");
-                                    break;
-                                case "text":
-                                    CQ.SendGroupMessage(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:{1}\r\n发送时间:{2}", msg["senderName"].ToString(), msg["text"].ToString(), msgs["msgTimeStr"].ToString()));
-                                    break;
-                                case "image":
-                                    JObject img = JObject.Parse(msgs["bodys"].ToString());
-                                    CQ.SendGroupMessage(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:发送了图片，但是机器人机器人不能发图，表情连接如下:\r\n{1}\r\n发送时间:{2}", msg["senderName"].ToString(), img["url"].ToString(), msgs["msgTimeStr"].ToString()));
-                                    break;
-                                case "faipaiText":
-                                    CQ.SendGroupMessage(listenConfig.QQGroup, String.Format("口袋房间：\r\n翻牌辣！{3}:{4}\r\n{0} 回复:{1}\r\n被翻牌的大佬不来集资一发吗？" + listenConfig.HitYouText + " \r\n发送时间:{2}", msg["senderName"].ToString(), msg["messageText"].ToString(), msgs["msgTimeStr"].ToString(), msg["faipaiName"].ToString(), msg["faipaiContent"].ToString()));
-                                    break;
-                                default:
-                                    CQ.SendGroupMessage(listenConfig.QQGroup, "你的小偶像有一条新消息，TeemoBot无法支持该类型消息，请打开口袋48查看~~");
-                                    break;
-                            }
-                        } 
+                            File.AppendAllText("LiveError.log", "捕获：" + liveInfo["liveId"] + "\r\n");
+                            LiveMsgCache.Add(liveInfo["liveId"], 1);
+                            CQ.SendGroupMessage(long.Parse(MemberIdCache[name[0]].ToString()), "直播提醒：\r\n你的小偶像" + name[0] + "开了一个" + name[1]+ "\r\n请尽量打开口袋48观看！\r\n不方便的同学可以使用KD for PC（非官方）观看或打开网址登陆：https://h5.48.cn/2017appshare/memberLiveShare/index.html?id="+liveInfo["liveId"]);
+                        }
                     }
-                    if (tmpTime != 0)
-                        lasttime = tmpTime;
                 }
-                if (first)
-                    first = false;
-            }catch(Exception ex)
-            {
-                //CQ.SendGroupMessage(qqGroup, "啊！程序出问题了！赶紧让辣鸡犹存通知队长看bug！");
-                File.AppendAllText("error.log", ex.ToString() + "\r\n" + ex.StackTrace);
+
             }
-            
+            catch (Exception ex)
+            {
+                File.AppendAllText("LiveError.log", ex.ToString() + "\r\n" + ex.StackTrace + ex.Data +"\r\n");
+            }
         }
 
         
@@ -164,7 +124,7 @@ namespace Teemo.CoolQ.Plugins
         public override void OpenSettingForm()
         {
             // 打开设置窗口的相关代码。
-            FormSettings frm = new FormSettings(ref tasks, ref listenConfig);
+            FormSettings frm = new FormSettings();
             frm.ShowDialog();
         }
 

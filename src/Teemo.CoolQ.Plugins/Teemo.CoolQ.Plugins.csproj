@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Teemo.CoolQ.Plugins</RootNamespace>
-    <AssemblyName>Teemo.KD.Room.5770640</AssemblyName>
+    <AssemblyName>Teemo.KD.Room.Live</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
