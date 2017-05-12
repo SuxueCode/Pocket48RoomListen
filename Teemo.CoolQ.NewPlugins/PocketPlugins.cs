@@ -16,18 +16,11 @@ namespace Teemo.CoolQ.NewPlugins
     {
         
         public override string AppId => "Teemo.CoolQ.NewPlugins";
-
-        static Task GetMsgTask;
-        static Task GetLiveTask;
-        static ListenConfig ListenConfig;
-
-        static bool First = true;
-        static long Lasttime = 0;
-        static int MsgCount;
         
         static bool ExitTask = false;
 
         static int LiveCount;
+        
         static Hashtable MemberIdCache = new Hashtable();
         static Hashtable LiveMsgCache = new Hashtable();
 
@@ -40,7 +33,11 @@ namespace Teemo.CoolQ.NewPlugins
         {
             //面板重新启用时候判断
             if (ExitTask)
+            {
                 ExitTask = false;
+                MemberIdCache.Clear();
+            }
+                
 
             if (File.Exists("config.ini"))
             {
@@ -48,39 +45,41 @@ namespace Teemo.CoolQ.NewPlugins
                 try
                 {
                     JObject configJson = JObject.Parse(config);
-                    First = true;
-                    ListenConfig = new ListenConfig();
-                    ListenConfig.QQGroup = long.Parse(configJson["QQGroup"].ToString());
-                    ListenConfig.KDRoomId = long.Parse(configJson["KDRoomId"].ToString());
-                    ListenConfig.IdolName = configJson["IdolName"].ToString();
-                    ListenConfig.GetRoomMsgDelay = int.Parse(configJson["GetRoomMsgDelay"].ToString());
-                    ListenConfig.GetLiveDelay = int.Parse(configJson["GetLiveDelay"].ToString());
-                    ListenConfig.GetWeiboDelay = int.Parse(configJson["GetWeiboDelay"].ToString());
-                    ListenConfig.HitYouText = configJson["NeedYou"].ToString();
+                    foreach(JObject idol in configJson.SelectTokens("$.Idols.[*]"))
+                    {
+                        ListenConfig listenConfig = new ListenConfig();
+                        listenConfig.QQGroup = long.Parse(idol["QQGroup"].ToString());
+                        listenConfig.KDRoomId = long.Parse(idol["KDRoomId"].ToString());
+                        listenConfig.IdolName = idol["IdolName"].ToString();
+                        listenConfig.GetRoomMsgDelay = int.Parse(idol["GetRoomMsgDelay"].ToString());
+                        listenConfig.GetLiveDelay = int.Parse(idol["GetLiveDelay"].ToString());
+                        listenConfig.GetWeiboDelay = int.Parse(idol["GetWeiboDelay"].ToString());
+                        listenConfig.HitYouText = idol["NeedYou"].ToString();
+
+                        MemberIdCache.Add(listenConfig.IdolName, listenConfig.QQGroup);
+                        CoolQApi.AddLog(CoolQLogLevel.Info, listenConfig.IdolName + "info load ok：kid " + listenConfig.KDRoomId);
+                        new Task(() => {
+                            while (!ExitTask)
+                            {
+                                GetRoomMsg(listenConfig);
+                                listenConfig.MsgCount++;
+                                CoolQApi.AddLog(CoolQLogLevel.Debug, "get room msg count:" + listenConfig.MsgCount + " msg lasttime:" + listenConfig.Lasttime + " member:" + listenConfig.IdolName + " kdroomid" + listenConfig.KDRoomId);
+                                Thread.Sleep(listenConfig.GetRoomMsgDelay);
+                            }
+                        }).Start();
+                    }
                     
-                    MemberIdCache.Add(ListenConfig.IdolName, ListenConfig.QQGroup);
-                    CoolQApi.AddLog(CoolQLogLevel.Info, "cache load ok");
-                    GetMsgTask = new Task(() => {
-                        while (!ExitTask)
-                        {
-                            GetRoomMsg();
-                            MsgCount++;
-                            CoolQApi.AddLog(CoolQLogLevel.Debug, "get room msg count:" + MsgCount + " msg lasttime:" + Lasttime + " member:" + ListenConfig.IdolName + " kdroomid" + ListenConfig.KDRoomId);
-                            Thread.Sleep(ListenConfig.GetRoomMsgDelay);
-                        }
-                    });
-                    GetMsgTask.Start();
-                    GetLiveTask = new Task(() =>
+                    
+                    new Task(() =>
                     {
                         while (!ExitTask)
                         {
                             GetLive();
                             LiveCount++;
                             CoolQApi.AddLog(CoolQLogLevel.Debug, "get live count:" + LiveCount);
-                            Thread.Sleep(ListenConfig.GetLiveDelay);
+                            Thread.Sleep(int.Parse(configJson["GetLiveDelay"].ToString()));
                         }
-                    });
-                    GetLiveTask.Start();
+                    }).Start();
                 }
                 catch(Exception ex)
                 {
@@ -107,7 +106,7 @@ namespace Teemo.CoolQ.NewPlugins
             return base.CoolQExited();
         }
 
-        public void GetRoomMsg()
+        public void GetRoomMsg(ListenConfig listenConfig)
         {
             try
             {
@@ -116,7 +115,7 @@ namespace Teemo.CoolQ.NewPlugins
                 req.UserAgent = "okhttp/3.4.1";
 
                 JObject rss = new JObject(
-                    new JProperty("roomId", ListenConfig.KDRoomId),
+                    new JProperty("roomId", listenConfig.KDRoomId),
                     new JProperty("lastTime", 0),
                     new JProperty("limit", 10)
                 );
@@ -152,16 +151,16 @@ namespace Teemo.CoolQ.NewPlugins
                     foreach (JToken msgs in datas)
                     {
                         //历史最后时间戳比对
-                        if ((long)msgs["msgTime"] > Lasttime)
+                        if ((long)msgs["msgTime"] > listenConfig.Lasttime)
                         {
                             //本次消息时间
                             if ((long)msgs["msgTime"] > tmpTime)
                                 tmpTime = (long)msgs["msgTime"];
                             JObject msg = JObject.Parse(msgs["extInfo"].ToString());
                             //首次运行，直接退出循环
-                            if (First)
+                            if (listenConfig.First)
                                 break;
-                            if ((long)msgs["msgTime"] < Lasttime)
+                            if ((long)msgs["msgTime"] < listenConfig.Lasttime)
                                 break;
                             switch (msg["messageObject"].ToString())
                             {
@@ -169,36 +168,36 @@ namespace Teemo.CoolQ.NewPlugins
                                     //CQ.SendGroupMessage(qqGroup,"你的小偶像删除了一条口袋房间的消息");
                                     break;
                                 case "text":
-                                    CoolQApi.SendGroupMsg(ListenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:{1}\r\n发送时间:{2}", msg["senderName"].ToString(), msg["text"].ToString(), msgs["msgTimeStr"].ToString()));
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:{1}\r\n发送时间:{2}", msg["senderName"].ToString(), msg["text"].ToString(), msgs["msgTimeStr"].ToString()));
                                     break;
                                 case "image":
                                     JObject img = JObject.Parse(msgs["bodys"].ToString());
                                     string imgFilename = GetImage(img["url"].ToString());
                                     if (imgFilename == "")
                                         return;
-                                    CoolQApi.SendGroupMsg(ListenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:\r\n{1}", msg["senderName"].ToString(), CoolQCode.Image(imgFilename)));
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:\r\n{1}", msg["senderName"].ToString(), CoolQCode.Image(imgFilename)));
                                     break;
                                 case "faipaiText":
-                                    CoolQApi.SendGroupMsg(ListenConfig.QQGroup, String.Format("口袋房间：\r\n翻牌辣！{3}:{4}\r\n{0} 回复:{1}\r\n被翻牌的大佬不来集资一发吗？" + ListenConfig.HitYouText + " \r\n发送时间:{2}", msg["senderName"].ToString(), msg["messageText"].ToString(), msgs["msgTimeStr"].ToString(), msg["faipaiName"].ToString(), msg["faipaiContent"].ToString()));
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, String.Format("口袋房间：\r\n翻牌辣！{3}:{4}\r\n{0} 回复:{1}\r\n被翻牌的大佬不来集资一发吗？" + listenConfig.HitYouText + " \r\n发送时间:{2}", msg["senderName"].ToString(), msg["messageText"].ToString(), msgs["msgTimeStr"].ToString(), msg["faipaiName"].ToString(), msg["faipaiContent"].ToString()));
                                     break;
                                 case "audio":
                                     JObject audio = JObject.Parse(msgs["bodys"].ToString());
                                     string audioFilename = GetAudio(audio["url"].ToString(), audio["ext"].ToString());
                                     if (audioFilename == "")
                                         return;
-                                    CoolQApi.SendGroupMsg(ListenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:\r\n{1}", msg["senderName"].ToString(), CoolQCode.ShareRecord(audioFilename)));
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:\r\n{1}", msg["senderName"].ToString(), CoolQCode.ShareRecord(audioFilename)));
                                     break;
                                 default:
-                                    CoolQApi.SendGroupMsg(ListenConfig.QQGroup, "你的小偶像有一条新消息，TeemoBot无法支持该类型消息，请打开口袋48查看~~");
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, "你的小偶像有一条新消息，TeemoBot无法支持该类型消息，请打开口袋48查看~~");
                                     break;
                             }
                         }
                     }
                     if (tmpTime != 0)
-                        Lasttime = tmpTime;
+                        listenConfig.Lasttime = tmpTime;
                 }
-                if (First)
-                    First = false;
+                if (listenConfig.First)
+                    listenConfig.First = false;
             }
             catch (Exception ex)
             {
@@ -296,7 +295,7 @@ namespace Teemo.CoolQ.NewPlugins
                     foreach (JToken liveInfo in datas)
                     {
                         if (LiveMsgCache.ContainsKey(liveInfo["liveId"]))
-                            return;
+                            break;
                         //懒得想算法了，直接很粗暴的按的字分割了
                         //title字段师xxx的直播间/电台，所以上面的idcache就直接看看有没有这个键，有的话直接推送了
                         string[] name = liveInfo["title"].ToString().Split(new string[] { "的" }, StringSplitOptions.RemoveEmptyEntries);
@@ -329,5 +328,8 @@ namespace Teemo.CoolQ.NewPlugins
         public string HitYouText { get; set; }
         public Version Version { get; set; }
         public int GetRoomMsgCount { get; set; }
+        public bool First = true;
+        public long Lasttime = 0;
+        public int MsgCount;
     }
 }
