@@ -187,8 +187,12 @@ namespace Teemo.CoolQ.NewPlugins
                                         return;
                                     CoolQApi.SendGroupMsg(listenConfig.QQGroup, String.Format("口袋房间：\r\n{0}:\r\n{1}", msg["senderName"].ToString(), CoolQCode.ShareRecord(audioFilename)));
                                     break;
+                                case "videoRecord":
+                                    JObject video = JObject.Parse(msgs["bodys"].ToString());
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup,string.Format("{0}发送了一个视频，请点击下面链接查看\r\n地址：{1}", msg["senderName"].ToString(),video["url"].ToString()));
+                                    break;
                                 default:
-                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, "你的小偶像有一条新消息，TeemoBot无法支持该类型消息，请打开口袋48查看~~");
+                                    CoolQApi.SendGroupMsg(listenConfig.QQGroup, "你的小偶像有一条新消息，TeemoBot无法支持该类型消息，请打开口袋48查看~~并向开发反馈下~谢谢~");
                                     break;
                             }
                         }
